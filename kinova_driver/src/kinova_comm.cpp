@@ -1155,6 +1155,52 @@ void KinovaComm::setFingerPositions(const FingerAngles &fingers, int timeout, bo
     }
 }
 
+/**
+ * @brief This function sets the finger velocities
+ * The new finger position, combined with current joint values are constructed as a trajectory point. sendAdvancedTrajectory() is called in api to complete the motion.
+ * @param fingers in degrees from 0 to about 6800
+ * @param timeout timeout default 0.0, not used.
+ * @param push default true, errase all trajectory before request motion.
+ */
+void KinovaComm::setFingerVelocities(const FingerAngles &fingers, int timeout, bool push)
+{
+    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+
+    if (isStopped())
+    {
+        ROS_INFO("The finger velocities could not be set because the arm is stopped");
+        return;
+    }
+
+    int result = NO_ERROR_KINOVA;
+    TrajectoryPoint kinova_finger;
+    kinova_finger.InitStruct();
+    memset(&kinova_finger, 0, sizeof(kinova_finger));  // zero structure
+
+    if (push)
+    {
+        result = kinova_api_.eraseAllTrajectories();
+        if (result != NO_ERROR_KINOVA)
+        {
+            throw KinovaCommException("Could not erase trajectories", result);
+        }
+    }
+
+    //startAPI();
+
+    // Initialize Cartesian control of the fingers
+    kinova_finger.Position.HandMode = VELOCITY_MODE;
+    kinova_finger.Position.Type = CARTESIAN_VELOCITY;
+    kinova_finger.Position.Fingers = fingers;
+    kinova_finger.Position.Delay = 0.0;
+    kinova_finger.LimitationsActive = 0;
+
+    result = kinova_api_.sendAdvanceTrajectory(kinova_finger);
+    if (result != NO_ERROR_KINOVA)
+    {
+        throw KinovaCommException("Could not send advanced finger trajectory", result);
+    }
+}
 
 /**
  * @brief Dumps the current finger agnles onto the screen.
@@ -1165,6 +1211,87 @@ void KinovaComm::printFingers(const FingersPosition &fingers)
     ROS_INFO("Finger joint value -- F1: %f, F2: %f, F3: %f",
              fingers.Finger1, fingers.Finger2, fingers.Finger3);
 }
+
+
+/**
+ * @brief Set joint velocities and finger velocities together.
+ */
+void KinovaComm::setFullJointVelocities(const AngularPosition &full_joint_vel)
+{
+    boost::recursive_mutex::scoped_lock lock(api_mutex_);
+
+    if (isStopped())
+    {
+        ROS_INFO("The velocities could not be set because the arm is stopped");
+        return;
+    }
+
+    int result = kinova_api_.setAngularControl();
+    if (result != NO_ERROR_KINOVA)
+    {
+        throw KinovaCommException("Could not set Full Angular control", result);
+    }
+    
+    TrajectoryPoint full_jaco_velocity;
+    full_jaco_velocity.InitStruct();
+
+    memset(&full_jaco_velocity, 0, sizeof(full_jaco_velocity));  // zero structure
+
+    //startAPI();
+    full_jaco_velocity.Position.Type = ANGULAR_VELOCITY;
+    full_jaco_velocity.Position.HandMode = VELOCITY_MODE;
+    full_jaco_velocity.Position.Delay = 0.0;
+    full_jaco_velocity.LimitationsActive = 0;
+    
+    full_jaco_velocity.Position.Fingers = full_joint_vel.Fingers;
+    full_jaco_velocity.Position.Actuators = full_joint_vel.Actuators;
+
+
+    result = kinova_api_.sendBasicTrajectory(full_jaco_velocity);
+    if (result != NO_ERROR_KINOVA)
+    {
+        throw KinovaCommException("Could not send advanced joint velocity trajectory", result);
+    }
+}
+
+/**
+ * @brief Set joint velocities and finger velocities together.
+ */
+void KinovaComm::setFullCartesianVelocities(const CartesianPosition &full_velocities)
+{
+	boost::recursive_mutex::scoped_lock lock(api_mutex_);
+
+    if (isStopped())
+    {
+        ROS_INFO("The velocities could not be set because the arm is stopped");
+        return;
+    }
+
+    TrajectoryPoint full_jaco_velocity;
+    full_jaco_velocity.InitStruct();
+
+    memset(&full_jaco_velocity, 0, sizeof(full_jaco_velocity));  // zero structure
+	
+
+    //startAPI();
+    full_jaco_velocity.Position.Type = CARTESIAN_VELOCITY;
+    full_jaco_velocity.Position.HandMode = VELOCITY_MODE;
+    full_jaco_velocity.Position.Delay = 0.0;
+    full_jaco_velocity.LimitationsActive = 0;
+    
+    full_jaco_velocity.Position.Fingers = full_velocities.Fingers;
+    full_jaco_velocity.Position.CartesianPosition = full_velocities.Coordinates;
+
+
+    int result = kinova_api_.sendAdvanceTrajectory(full_jaco_velocity);
+    if (result != NO_ERROR_KINOVA)
+    {
+        throw KinovaCommException("Could not send advanced joint velocity trajectory", result);
+    }
+}
+
+
+
 
 
 /**
@@ -1192,30 +1319,38 @@ void KinovaComm::homeArm(void)
     startAPI();
 
     ROS_INFO("Homing the arm");
-
-    JoystickCommand mycommand;
-    mycommand.InitStruct();
-    // In api mapping(observing with Jacosoft), home button is ButtonValue[2].
-    mycommand.ButtonValue[2] = 1;
-    for(int i = 0; i<2000; i++)
+    
+    int result = kinova_api_.moveHome();
+    if (result != NO_ERROR_KINOVA)
     {
-        kinova_api_.sendJoystickCommand(mycommand);
-        usleep(5000);
-
-        // if (myhome.isCloseToOther(KinovaAngles(currentAngles.Actuators), angle_tolerance))
-        if(isHomed())
-        {
-            ROS_INFO(" haha Arm is in \"home\" position");
-            // release home button.
-            mycommand.ButtonValue[2] = 0;
-            kinova_api_.sendJoystickCommand(mycommand);
-            return;
-        }
+        throw KinovaCommException("Move home failed", result);
     }
+    
+// The following code is just NOT working properly on my JACO2 ARM, thus I change it back to old version.
 
-    mycommand.ButtonValue[2] = 0;
-    kinova_api_.sendJoystickCommand(mycommand);
-    ROS_WARN("Homing arm timer out! If the arm is not in home position yet, please re-run home arm.");
+//    JoystickCommand mycommand;
+//mycommand.InitStruct();
+//    // In api mapping(observing with Jacosoft), home button is ButtonValue[2].
+//    mycommand.ButtonValue[2] = 1;
+//    for(int i = 0; i<2000; i++)
+//    {
+//        kinova_api_.sendJoystickCommand(mycommand);
+//        usleep(5000);
+//
+//        // if (myhome.isCloseToOther(KinovaAngles(currentAngles.Actuators), angle_tolerance))
+//        if(isHomed())
+//        {
+//            ROS_INFO(" haha Arm is in \"home\" position");
+//            // release home button.
+//            mycommand.ButtonValue[2] = 0;
+//            kinova_api_.sendJoystickCommand(mycommand);
+//            return;
+//        }
+//    }
+//
+//    mycommand.ButtonValue[2] = 0;
+//    kinova_api_.sendJoystickCommand(mycommand);
+//    ROS_WARN("Homing arm timer out! If the arm is not in home position yet, please re-run home arm.");
 
 }
 

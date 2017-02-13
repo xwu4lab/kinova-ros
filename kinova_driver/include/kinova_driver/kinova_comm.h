@@ -114,7 +114,11 @@ class KinovaComm
     int numFingers() const;
     void getFingerPositions(FingerAngles &fingers);
     void setFingerPositions(const FingerAngles &fingers, int timeout = 0, bool push = true);
+    void setFingerVelocities(const FingerAngles &fingers, int timeout = 0, bool push = true);
     void printFingers(const FingersPosition &fingers);
+
+    void setFullJointVelocities(const AngularPosition &full_joint_vel);
+    void setFullCartesianVelocities(const CartesianPosition &full_cartesian_vel);
 
     void homeArm(void);
     bool isHomed(void);

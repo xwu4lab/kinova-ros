@@ -143,6 +143,10 @@ KinovaArm::KinovaArm(KinovaComm &arm, const ros::NodeHandle &nodeHandle, const s
                                                       &KinovaArm::jointVelocityCallback, this);
     cartesian_velocity_subscriber_ = node_handle_.subscribe("in/cartesian_velocity", 1,
                                                           &KinovaArm::cartesianVelocityCallback, this);
+    full_joint_velocity_subscriber_ = node_handle_.subscribe("in/full_joint_velocity", 1,
+                                                      &KinovaArm::fullJointVelocityCallback, this);
+    full_cartesian_velocity_subscriber_ = node_handle_.subscribe("in/full_cartesian_velocity", 1,
+                                                          &KinovaArm::fullCartesianVelocityCallback, this);
 
     node_handle_.param<double>("status_interval_seconds", status_interval_seconds_, 0.1);
 
@@ -189,6 +193,24 @@ void KinovaArm::jointVelocityCallback(const kinova_msgs::JointVelocityConstPtr& 
     }
 }
 
+void KinovaArm::fullJointVelocityCallback(const kinova_msgs::FullJointVelocityConstPtr& full_joint_vel)
+{
+	if (!kinova_comm_.isStopped())
+    {
+        full_joint_velocities_.Actuators.Actuator1 = full_joint_vel->joint1;
+        full_joint_velocities_.Actuators.Actuator2 = full_joint_vel->joint2;
+        full_joint_velocities_.Actuators.Actuator3 = full_joint_vel->joint3;
+        full_joint_velocities_.Actuators.Actuator4 = full_joint_vel->joint4;
+        full_joint_velocities_.Actuators.Actuator5 = full_joint_vel->joint5;
+        full_joint_velocities_.Actuators.Actuator6 = full_joint_vel->joint6;
+        full_joint_velocities_.Fingers.Finger1     = full_joint_vel->finger1;
+        full_joint_velocities_.Fingers.Finger2     = full_joint_vel->finger2;
+        full_joint_velocities_.Fingers.Finger3     = full_joint_vel->finger3;
+
+        kinova_comm_.setFullJointVelocities(full_joint_velocities_);
+    }
+}
+	
 
 /*!
  * \brief Handler for "stop" service.
@@ -291,6 +313,24 @@ void KinovaArm::cartesianVelocityCallback(const kinova_msgs::PoseVelocityConstPt
     }
 }
 
+void KinovaArm::fullCartesianVelocityCallback(const kinova_msgs::FullPoseVelocityConstPtr& full_cartesian_vel)
+{
+	    if (!kinova_comm_.isStopped())
+    {
+        full_cartesian_velocities_.Coordinates.X = full_cartesian_vel->twist_linear_x;
+        full_cartesian_velocities_.Coordinates.Y = full_cartesian_vel->twist_linear_y;
+        full_cartesian_velocities_.Coordinates.Z = full_cartesian_vel->twist_linear_z;
+        full_cartesian_velocities_.Coordinates.ThetaX = full_cartesian_vel->twist_angular_x;
+        full_cartesian_velocities_.Coordinates.ThetaY = full_cartesian_vel->twist_angular_y;
+        full_cartesian_velocities_.Coordinates.ThetaZ = full_cartesian_vel->twist_angular_z;
+        full_cartesian_velocities_.Fingers.Finger1 = full_cartesian_vel->finger1;
+        full_cartesian_velocities_.Fingers.Finger2 = full_cartesian_vel->finger2;
+        full_cartesian_velocities_.Fingers.Finger3 = full_cartesian_vel->finger3;
+
+        kinova_comm_.setFullCartesianVelocities(full_cartesian_velocities_);
+	}
+}
+
 /*!
  * \brief Publishes the current joint angles.
  *
@@ -340,14 +380,14 @@ void KinovaArm::publishJointAngles(void)
 
     if(finger_number_==2)
     {
-        joint_state.position[joint_total_number_-2] = 0;
-        joint_state.position[joint_total_number_-1] = 0;
+        joint_state.position[joint_total_number_-2] = fingers.Finger1/6800*80*M_PI/180;
+        joint_state.position[joint_total_number_-1] = fingers.Finger2/6800*80*M_PI/180;
     }
     else if(finger_number_==3)
     {
-        joint_state.position[joint_total_number_-3] = 0;
-        joint_state.position[joint_total_number_-2] = 0;
-        joint_state.position[joint_total_number_-1] = 0;
+        joint_state.position[joint_total_number_-3] = fingers.Finger1/6800*80*M_PI/180;
+        joint_state.position[joint_total_number_-2] = fingers.Finger2/6800*80*M_PI/180;
+        joint_state.position[joint_total_number_-1] = fingers.Finger3/6800*80*M_PI/180;
     }
 
 
@@ -362,14 +402,14 @@ void KinovaArm::publishJointAngles(void)
     // no velocity info for fingers
     if(finger_number_==2)
     {
-        joint_state.velocity[joint_total_number_-2] = 0;
-        joint_state.velocity[joint_total_number_-1] = 0;
+        joint_state.velocity[joint_total_number_-2] = 0.0;
+        joint_state.velocity[joint_total_number_-1] = 0.0;
     }
     else if(finger_number_==3)
     {
-        joint_state.velocity[joint_total_number_-3] = 0;
-        joint_state.velocity[joint_total_number_-2] = 0;
-        joint_state.velocity[joint_total_number_-1] = 0;
+        joint_state.velocity[joint_total_number_-3] = 0.0;
+        joint_state.velocity[joint_total_number_-2] = 0.0;
+        joint_state.velocity[joint_total_number_-1] = 0.0;
     }
 
     if (arm_joint_number_ == 6)

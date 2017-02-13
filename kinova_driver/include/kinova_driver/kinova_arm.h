@@ -29,6 +29,8 @@
 #include <kinova_msgs/KinovaPose.h>
 #include <kinova_msgs/SetForceControlParams.h>
 #include <kinova_msgs/SetEndEffectorOffset.h>
+#include <kinova_msgs/FullJointVelocity.h>
+#include <kinova_msgs/FullPoseVelocity.h>
 
 #include <time.h>
 #include <math.h>
@@ -52,6 +54,9 @@ class KinovaArm
     void jointVelocityCallback(const kinova_msgs::JointVelocityConstPtr& joint_vel);
     void cartesianVelocityCallback(const kinova_msgs::PoseVelocityConstPtr& cartesian_vel);
 
+    void fullJointVelocityCallback(const kinova_msgs::FullJointVelocityConstPtr& full_joint_vel);
+    void fullCartesianVelocityCallback(const kinova_msgs::FullPoseVelocityConstPtr& full_cartesian_vel);
+
     bool stopServiceCallback(kinova_msgs::Stop::Request &req, kinova_msgs::Stop::Response &res);
     bool startServiceCallback(kinova_msgs::Start::Request &req, kinova_msgs::Start::Response &res);
     bool homeArmServiceCallback(kinova_msgs::HomeArm::Request &req, kinova_msgs::HomeArm::Response &res);
@@ -70,6 +75,8 @@ class KinovaArm
     void positionTimer(const ros::TimerEvent&);
     void cartesianVelocityTimer(const ros::TimerEvent&);
     void jointVelocityTimer(const ros::TimerEvent&);
+    void fullCartesianVelocityTimer(const ros::TimerEvent&);
+    void fullJointVelocityTimer(const ros::TimerEvent&);
     void statusTimer(const ros::TimerEvent&);
 
     void publishJointAngles(void);
@@ -84,6 +91,8 @@ class KinovaArm
     // Publishers, subscribers, services
     ros::Subscriber joint_velocity_subscriber_;
     ros::Subscriber cartesian_velocity_subscriber_;
+    ros::Subscriber full_joint_velocity_subscriber_;
+    ros::Subscriber full_cartesian_velocity_subscriber_;
 
     ros::Publisher joint_angles_publisher_;
     ros::Publisher tool_position_publisher_;
@@ -127,6 +136,9 @@ class KinovaArm
     // State tracking or utility members
     AngularInfo joint_velocities_;
     CartesianInfo cartesian_velocities_;
+
+    AngularPosition full_joint_velocities_;
+    CartesianPosition full_cartesian_velocities_;
 
     std::vector< std::string > joint_names_;
 };
