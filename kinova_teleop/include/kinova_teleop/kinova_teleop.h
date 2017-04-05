@@ -51,6 +51,8 @@ class kinova_teleop
   kinova_msgs::FullPoseVelocity full_cartesian_vel_; 
 
   int mode_;
+  
+  bool trig_;
 
   double linear_throttle_factor_; 
   double angular_throttle_factor_; 

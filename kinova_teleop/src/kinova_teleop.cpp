@@ -18,12 +18,20 @@ kinova_teleop::kinova_teleop():
 	ph_.param<double>("finger_throttle_factor", finger_throttle_factor_, 1.0);
 	
 	mode_ = JOINT_CONTROL;
+	trig_ = false;
 	
 	ROS_INFO("KINOVA joystick started");
 }
 
 void kinova_teleop::joy_callback(const sensor_msgs::Joy::ConstPtr& joy)
 {
+	if (joy->buttons.at(0) == 1) {
+		trig_ = true;
+	}
+	else { 
+		trig_ = false;
+	}
+	
 	if (joy->buttons.at(6) == 1)
 	{
 		kinova_msgs::Stop srv_stop;
@@ -168,17 +176,18 @@ void kinova_teleop::joy_callback(const sensor_msgs::Joy::ConstPtr& joy)
 }
 
 void kinova_teleop::publish_velocity()
-{		
-	switch (mode_)
-	{
-		case CARTESIAN_CONTROL:
-		cartesian_cmd_.publish(full_cartesian_vel_);
-		break;
-		
-		case JOINT_CONTROL:
-		joint_cmd_.publish(full_joint_vel_);
-		break;
+{
+	if (!trig_) {
+		switch (mode_)
+		{
+			case CARTESIAN_CONTROL:
+			cartesian_cmd_.publish(full_cartesian_vel_);
+			break;
 			
+			case JOINT_CONTROL:
+			joint_cmd_.publish(full_joint_vel_);
+			break;		
+		}
 	}
 }
 
